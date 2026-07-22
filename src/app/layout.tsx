@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Press_Start_2P, VT323 } from "next/font/google";
+import SoundToggle from "@/components/SoundToggle";
 import "./globals.css";
 
 const pixelFont = Press_Start_2P({
@@ -32,6 +33,7 @@ export default function RootLayout({
         className={`${pixelFont.variable} ${terminalFont.variable} scanlines antialiased text-lg`}
       >
         <div className="fixed inset-0 bg-arcade-bg bg-arcade-grid -z-10" />
+        <SoundToggle />
         <div className="relative min-h-screen">{children}</div>
       </body>
     </html>

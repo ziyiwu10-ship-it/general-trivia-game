@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import PixelHeading from "@/components/ui/PixelHeading";
@@ -8,6 +9,7 @@ import NeonButton from "@/components/ui/NeonButton";
 import PlayerList from "@/components/PlayerList";
 import { PublicPlayer } from "@/types/game";
 import { cn } from "@/lib/utils";
+import { playFinish } from "@/lib/sound";
 
 const PODIUM_STYLES = [
   { place: 1, color: "gold", height: "h-40", order: "order-2" },
@@ -26,6 +28,10 @@ export default function Podium({
   const top3 = ranked.slice(0, 3);
   const rest = ranked.slice(3);
 
+  useEffect(() => {
+    playFinish();
+  }, []);
+
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-xl px-4">
       <PixelHeading color="gold">Final Results</PixelHeading>
@@ -42,6 +48,7 @@ export default function Podium({
               transition={{ delay: i * 0.15, type: "spring", stiffness: 200, damping: 20 }}
               className={cn("flex-1 flex flex-col items-center gap-2", style.order)}
             >
+              <span className="text-3xl leading-none">{player.avatar}</span>
               <span className="font-terminal text-xl truncate max-w-full">{player.name}</span>
               <span
                 className={cn(

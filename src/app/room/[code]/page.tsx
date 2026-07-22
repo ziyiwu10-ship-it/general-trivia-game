@@ -81,7 +81,11 @@ export default function RoomPage({ params }: { params: { code: string } }) {
         }
         case "question_ended":
           setPlayers(event.players);
-          setReveal({ questionIndex: event.questionIndex, correctIndex: event.correctIndex });
+          setReveal({
+            questionIndex: event.questionIndex,
+            correctIndex: event.correctIndex,
+            revealedAt: Date.now(),
+          });
           break;
         case "game_finished":
           setFinalPlayers(event.players);
@@ -93,6 +97,22 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   );
 
   useRoomChannel(code, handleRealtimeEvent);
+
+  // Mobile browsers in particular suspend background tabs' network
+  // connections, so a realtime broadcast that fires while you're away (e.g.
+  // you switched apps mid-question) can simply never arrive — there's
+  // nothing to "catch up" on reconnect since broadcasts aren't replayed.
+  // Rather than poll continuously, we do a single resync fetch whenever the
+  // tab becomes visible again, which is enough to un-stick a client that
+  // missed an event while backgrounded.
+  useEffect(() => {
+    if (!session) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchRoom(session.playerId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [session, fetchRoom]);
 
   // Best-effort presence: let the room know we're gone when the tab closes.
   useEffect(() => {

@@ -6,12 +6,15 @@ import PlayerList from "@/components/PlayerList";
 import { PlayerSession } from "@/hooks/usePlayerSession";
 import { PublicPlayer, PublicRoom } from "@/types/game";
 import { PublicQuestion } from "@/lib/supabase/types";
+import { playClick, playCorrect, playTick, playWrong } from "@/lib/sound";
 
 const REVEAL_WINDOW_MS = 4000;
 
 export interface RevealState {
   questionIndex: number;
   correctIndex: number;
+  /** Client-side timestamp when this reveal was received, used to schedule the advance-to-next timer. */
+  revealedAt: number;
 }
 
 interface GameRoomProps {
@@ -42,6 +45,8 @@ export default function GameRoom({
   const revealFiredRef = useRef(false);
   const nextFiredRef = useRef(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastTickSoundRef = useRef<number | null>(null);
+  const revealSoundFiredRef = useRef(false);
 
   const authBody = { playerId: session.playerId, token: session.token };
 
@@ -75,19 +80,33 @@ export default function GameRoom({
     setLastPoints(null);
     revealFiredRef.current = false;
     nextFiredRef.current = false;
+    revealSoundFiredRef.current = false;
+    lastTickSoundRef.current = null;
   }, [question?.id]);
 
   // Server-authoritative countdown: every connected client derives the same
   // remaining time from questionStartedAt, then races (harmlessly, since the
   // server re-checks elapsed time) to call /reveal once it hits zero.
+  //
+  // Browsers throttle setInterval heavily in backgrounded tabs (mobile in
+  // particular — switching apps, locking the screen), so a tab that's put
+  // away for a while can miss its own tick entirely and look "frozen" when
+  // you come back. Rather than trust the interval alone, we compute an
+  // absolute target time and re-check it immediately on every
+  // visibilitychange, so tabbing back in catches things up right away
+  // instead of waiting on a throttled timer.
   useEffect(() => {
     if (!room.questionStartedAt || reveal) return;
-    const startedAt = new Date(room.questionStartedAt).getTime();
+    const target = new Date(room.questionStartedAt).getTime() + room.secondsPerQuestion * 1000;
 
     const tick = () => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      const left = Math.max(0, room.secondsPerQuestion - elapsed);
+      const left = Math.max(0, (target - Date.now()) / 1000);
       setSecondsLeft(left);
+      const wholeSecond = Math.ceil(left);
+      if (wholeSecond <= 5 && wholeSecond > 0 && lastTickSoundRef.current !== wholeSecond) {
+        lastTickSoundRef.current = wholeSecond;
+        playTick();
+      }
       if (left <= 0 && !revealFiredRef.current) {
         revealFiredRef.current = true;
         setTimeout(() => callReveal(room.currentQuestionIndex), Math.random() * 400);
@@ -95,22 +114,50 @@ export default function GameRoom({
     };
     tick();
     tickRef.current = setInterval(tick, 100);
+    document.addEventListener("visibilitychange", tick);
     return () => {
       if (tickRef.current) clearInterval(tickRef.current);
+      document.removeEventListener("visibilitychange", tick);
     };
   }, [room.questionStartedAt, room.secondsPerQuestion, room.currentQuestionIndex, reveal, callReveal]);
 
-  // Once revealed, every client races (harmlessly) to advance after the reveal window.
+  // Once revealed, every client races (harmlessly) to advance after the
+  // reveal window — same throttling concern as above, so this checks an
+  // absolute target on an interval plus visibilitychange instead of relying
+  // on a single setTimeout.
   useEffect(() => {
-    if (!reveal || nextFiredRef.current) return;
-    nextFiredRef.current = true;
-    const timeout = setTimeout(() => callNext(reveal.questionIndex), REVEAL_WINDOW_MS);
-    return () => clearTimeout(timeout);
+    if (!reveal) return;
+    const target = reveal.revealedAt + REVEAL_WINDOW_MS;
+
+    const check = () => {
+      if (nextFiredRef.current) return;
+      if (Date.now() >= target) {
+        nextFiredRef.current = true;
+        callNext(reveal.questionIndex);
+      }
+    };
+    check();
+    const interval = setInterval(check, 200);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", check);
+    };
   }, [reveal, callNext]);
+
+  // Play a correct/wrong sting the moment this player's own outcome is known.
+  useEffect(() => {
+    if (!reveal || revealSoundFiredRef.current) return;
+    if (reveal.questionIndex !== room.currentQuestionIndex) return;
+    revealSoundFiredRef.current = true;
+    if (selected !== null && selected === reveal.correctIndex) playCorrect();
+    else playWrong();
+  }, [reveal, selected, room.currentQuestionIndex]);
 
   const handleSelect = async (choiceIndex: number) => {
     if (selected !== null || reveal || hasAnswered || !question) return;
     setSelected(choiceIndex);
+    playClick();
     onAnswerSubmitted(0); // optimistically mark answered so the UI locks immediately
     try {
       const res = await fetch(`/api/rooms/${code}/answer`, {

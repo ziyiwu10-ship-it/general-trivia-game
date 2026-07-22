@@ -19,6 +19,7 @@ export interface PlayerRow {
   id: string;
   room_id: string;
   name: string;
+  avatar: string;
   client_token: string;
   score: number;
   is_host: boolean;

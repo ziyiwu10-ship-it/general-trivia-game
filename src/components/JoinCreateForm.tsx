@@ -6,7 +6,9 @@ import NeonPanel from "@/components/ui/NeonPanel";
 import NeonButton from "@/components/ui/NeonButton";
 import PixelHeading from "@/components/ui/PixelHeading";
 import CategoryPicker from "@/components/CategoryPicker";
+import AvatarPicker from "@/components/AvatarPicker";
 import { savePlayerSession } from "@/hooks/usePlayerSession";
+import { DEFAULT_AVATAR } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
 
 type Mode = "menu" | "create" | "join";
@@ -15,6 +17,7 @@ export default function JoinCreateForm() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("menu");
   const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,7 @@ export default function JoinCreateForm() {
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostName: name, category, numQuestions }),
+        body: JSON.stringify({ hostName: name, category, numQuestions, avatar }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create room");
@@ -64,7 +67,7 @@ export default function JoinCreateForm() {
       const res = await fetch(`/api/rooms/${roomCode}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, avatar }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to join room");
@@ -95,6 +98,7 @@ export default function JoinCreateForm() {
             className="mt-2 w-full rounded-md border-2 border-arcade-border bg-arcade-bg px-4 py-3 font-terminal text-xl text-foreground outline-none focus:border-neon-cyan focus:shadow-neon-cyan"
           />
         </div>
+        <AvatarPicker value={avatar} onChange={setAvatar} />
         {error && <p className="font-terminal text-lg text-neon-pink">{error}</p>}
         <div className="flex flex-col gap-4">
           <NeonButton color="green" fullWidth onClick={() => setMode("create")}>

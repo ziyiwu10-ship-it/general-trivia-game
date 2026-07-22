@@ -29,6 +29,12 @@ pixel-font headings, terminal-font body text, scanline/grid texture.
    the RLS policies that keep game state server-authoritative (see
    [Security model](#security-model) below).
 
+   If you already ran this file once against a live project and are
+   pulling a later update, `create table if not exists` won't add new
+   columns to a table that already exists — see the **Migrations** block
+   at the bottom of `schema.sql` for the `alter table` statements to run
+   by hand.
+
 3. **Copy the env file and fill in your keys**
 
    ```bash
@@ -81,6 +87,27 @@ pixel-font headings, terminal-font body text, scanline/grid texture.
   decays linearly across the question's time window, computed server-side
   from the server-recorded answer timestamp (never trusts a client-reported
   time).
+- **Backgrounded-tab resilience**: mobile browsers throttle JS timers and can
+  suspend a tab's websocket when it's not in focus (switching apps, screen
+  lock), which can otherwise strand a client mid-question. Every timer that
+  drives the game (countdown, reveal, advance) recomputes against an
+  absolute server-derived timestamp and re-checks itself on `visibilitychange`
+  in addition to its normal interval, and the room page does a one-time
+  resync fetch on refocus in case a broadcast was missed outright — so
+  tabbing back in catches you up immediately instead of leaving you stuck.
+
+## Extras
+
+- **Sound**: a small Web Audio synth (`src/lib/sound.ts`) generates all audio
+  procedurally — a looping 8-bit background arpeggio plus beeps for
+  answering, correct/wrong reveals, the countdown's last 5 seconds, and the
+  end-game fanfare. No audio files, nothing to license. Off by default (autoplay
+  policies require a user gesture anyway); toggle via the speaker icon,
+  top-right on every screen. Preference persists in `localStorage`.
+- **Avatars**: players pick from a small set of original pixel/emoji avatars
+  when joining or creating a room (`src/lib/avatars.ts`). These are an
+  original set in a similar cute-chibi-pixel spirit to the game's visual
+  references, not reproductions of any copyrighted character art.
 
 ## Design tradeoffs
 

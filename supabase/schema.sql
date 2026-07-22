@@ -34,6 +34,7 @@ create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references rooms (id) on delete cascade,
   name text not null check (char_length(name) between 1 and 20),
+  avatar text not null default '🦸‍♀️',
   client_token uuid not null default gen_random_uuid(),
   score int not null default 0,
   is_host boolean not null default false,
@@ -130,4 +131,12 @@ create policy "players are publicly readable" on players
 -- hitting /api/cleanup) or run manually:
 --   delete from rooms where expires_at < now();
 -- Cascades remove players/questions/answers automatically.
+-- ─────────────────────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────────────────────
+-- Migrations — if you already ran this file once against a live
+-- project, `create table if not exists` won't retroactively add new
+-- columns to a table that already exists. Run these by hand instead:
+--
+--   alter table players add column if not exists avatar text not null default '🦸‍♀️';
 -- ─────────────────────────────────────────────────────────────

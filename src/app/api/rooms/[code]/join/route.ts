@@ -3,13 +3,15 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getRoomByCode } from "@/lib/roomAuth";
 import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicPlayer } from "@/types/game";
+import { AVATARS, DEFAULT_AVATAR } from "@/lib/avatars";
 
 export async function POST(req: NextRequest, { params }: { params: { code: string } }) {
   try {
-    const { name } = await req.json();
+    const { name, avatar } = await req.json();
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
+    const chosenAvatar = AVATARS.includes(avatar) ? avatar : DEFAULT_AVATAR;
 
     const supabase = supabaseServer();
     const room = await getRoomByCode(supabase, params.code);
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
 
     const { data: player, error } = await supabase
       .from("players")
-      .insert({ room_id: room.id, name: name.trim().slice(0, 20) })
+      .insert({ room_id: room.id, name: name.trim().slice(0, 20), avatar: chosenAvatar })
       .select()
       .single();
     if (error) throw error;
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
 
     return NextResponse.json({
       room: { code: room.code, category: room.category, numQuestions: room.num_questions },
-      player: { id: player.id, name: player.name, token: player.client_token, isHost: false },
+      player: { id: player.id, name: player.name, avatar: player.avatar, token: player.client_token, isHost: false },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to join room";

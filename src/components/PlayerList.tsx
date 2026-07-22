@@ -45,6 +45,7 @@ export default function PlayerList({
                     #{rankOffset + i + 1}
                   </span>
                 )}
+                <span className="text-xl leading-none">{p.avatar}</span>
                 {p.name}
                 {p.isHost && <span className="font-pixel text-[9px] text-neon-green">HOST</span>}
                 {!p.connected && <span className="font-pixel text-[9px] text-neon-pink">OFFLINE</span>}

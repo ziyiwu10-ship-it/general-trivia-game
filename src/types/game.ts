@@ -13,6 +13,7 @@ export interface PublicRoom {
 export interface PublicPlayer {
   id: string;
   name: string;
+  avatar: string;
   score: number;
   isHost: boolean;
   connected: boolean;
@@ -43,6 +44,7 @@ export function toPublicPlayer(p: PlayerRow): PublicPlayer {
   return {
     id: p.id,
     name: p.name,
+    avatar: p.avatar,
     score: p.score,
     isHost: p.is_host,
     connected: p.connected,
