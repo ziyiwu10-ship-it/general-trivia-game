@@ -96,7 +96,16 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     [session, save]
   );
 
-  useRoomChannel(code, handleRealtimeEvent);
+  // Resync full room state every time the realtime channel (re)connects —
+  // covers both the initial connect race (a friend joining in the split
+  // second before our socket finishes subscribing) and any reconnect after
+  // a dropped connection, either of which would otherwise silently drop a
+  // broadcast with no way to notice.
+  const handleSubscribed = useCallback(() => {
+    if (session) fetchRoom(session.playerId);
+  }, [session, fetchRoom]);
+
+  useRoomChannel(code, handleRealtimeEvent, handleSubscribed);
 
   // Mobile browsers in particular suspend background tabs' network
   // connections, so a realtime broadcast that fires while you're away (e.g.
