@@ -5,11 +5,17 @@ export async function getRoomByCode(
   supabase: SupabaseClient,
   code: string
 ): Promise<RoomRow | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("rooms")
     .select("*")
     .eq("code", code.toUpperCase())
     .maybeSingle();
+  if (error) {
+    // Surface the real cause instead of silently reporting "not found" for
+    // what might actually be a DB/permissions error.
+    console.error("[getRoomByCode] query failed:", error.message);
+    throw new Error(`Room lookup failed: ${error.message}`);
+  }
   return (data as RoomRow) ?? null;
 }
 

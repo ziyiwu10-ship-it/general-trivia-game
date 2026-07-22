@@ -13,29 +13,34 @@ function wikipediaSearchUrl(topic: string): string {
  * to peek at answers mid-game.
  */
 export async function GET(req: NextRequest, { params }: { params: { code: string } }) {
-  const supabase = supabaseServer();
-  const room = await getRoomByCode(supabase, params.code);
-  if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
-  if (room.status !== "finished") {
-    return NextResponse.json({ error: "Recap is only available after the game ends" }, { status: 409 });
+  try {
+    const supabase = supabaseServer();
+    const room = await getRoomByCode(supabase, params.code);
+    if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    if (room.status !== "finished") {
+      return NextResponse.json({ error: "Recap is only available after the game ends" }, { status: 409 });
+    }
+
+    const { data: questions, error } = await supabase
+      .from("questions")
+      .select("*")
+      .eq("room_id", room.id)
+      .order("idx", { ascending: true });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const recap = (questions ?? []).map((q) => ({
+      idx: q.idx,
+      question: q.question,
+      choices: q.choices,
+      correctIndex: q.correct_index,
+      correctAnswer: q.choices[q.correct_index],
+      topic: q.topic,
+      learnMoreUrl: wikipediaSearchUrl(q.topic || q.question),
+    }));
+
+    return NextResponse.json({ recap });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load recap";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const { data: questions, error } = await supabase
-    .from("questions")
-    .select("*")
-    .eq("room_id", room.id)
-    .order("idx", { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const recap = (questions ?? []).map((q) => ({
-    idx: q.idx,
-    question: q.question,
-    choices: q.choices,
-    correctIndex: q.correct_index,
-    correctAnswer: q.choices[q.correct_index],
-    topic: q.topic,
-    learnMoreUrl: wikipediaSearchUrl(q.topic || q.question),
-  }));
-
-  return NextResponse.json({ recap });
 }
