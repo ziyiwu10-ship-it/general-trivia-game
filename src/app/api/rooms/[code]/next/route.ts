@@ -25,12 +25,16 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
     if (!player) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     if (room.status !== "active" || room.current_question_index !== questionIndex) {
+      console.error(
+        `[next] rejected as already-moved for ${params.code}: status=${room.status} dbIdx=${room.current_question_index} reqIdx=${questionIndex}`
+      );
       return NextResponse.json({ ok: true, alreadyMoved: true });
     }
 
     const startedAt = room.question_started_at ? new Date(room.question_started_at).getTime() : 0;
     const elapsed = Date.now() - startedAt;
     if (elapsed < room.seconds_per_question * 1000 - ADVANCE_GRACE_MS) {
+      console.error(`[next] rejected as too-early for ${params.code}: elapsed=${elapsed}ms`);
       return NextResponse.json({ error: "Question still in progress" }, { status: 409 });
     }
 
@@ -45,14 +49,21 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
         .eq("current_question_index", questionIndex)
         .select()
         .single();
-      if (error) throw error;
-      if (!updatedRoom) return NextResponse.json({ ok: true, alreadyMoved: true });
+      if (error) {
+        console.error(`[next] finish update failed for ${params.code}:`, error.message);
+        throw error;
+      }
+      if (!updatedRoom) {
+        console.error(`[next] finish update matched no row for ${params.code} (idx=${questionIndex})`);
+        return NextResponse.json({ ok: true, alreadyMoved: true });
+      }
 
       const { data: players } = await supabase.from("players").select("*").eq("room_id", room.id);
       await broadcastToRoom(room.code, {
         type: "game_finished",
         players: ((players as PlayerRow[]) ?? []).map(toPublicPlayer),
       });
+      console.log(`[next] finished ${params.code} successfully`);
       return NextResponse.json({ ok: true, finished: true });
     }
 
@@ -63,8 +74,14 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
       .eq("current_question_index", questionIndex)
       .select()
       .single();
-    if (error) throw error;
-    if (!updatedRoom) return NextResponse.json({ ok: true, alreadyMoved: true });
+    if (error) {
+      console.error(`[next] advance update failed for ${params.code}:`, error.message);
+      throw error;
+    }
+    if (!updatedRoom) {
+      console.error(`[next] advance update matched no row for ${params.code} (idx=${questionIndex})`);
+      return NextResponse.json({ ok: true, alreadyMoved: true });
+    }
 
     const { data: nextQuestion } = await supabase
       .from("questions")
@@ -83,6 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to advance question";
+    console.error(`[next] threw for ${params.code}:`, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

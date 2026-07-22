@@ -9,6 +9,7 @@ import { PublicQuestion } from "@/lib/supabase/types";
 import { playClick, playCorrect, playTick, playWrong } from "@/lib/sound";
 
 const REVEAL_WINDOW_MS = 4000;
+const RETRY_COOLDOWN_MS = 1500;
 
 export interface RevealState {
   questionIndex: number;
@@ -43,32 +44,63 @@ export default function GameRoom({
   const [secondsLeft, setSecondsLeft] = useState(room.secondsPerQuestion);
 
   const revealFiredRef = useRef(false);
+  const revealLastAttemptRef = useRef(0);
   const nextFiredRef = useRef(false);
+  const nextLastAttemptRef = useRef(0);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTickSoundRef = useRef<number | null>(null);
   const revealSoundFiredRef = useRef(false);
 
   const authBody = { playerId: session.playerId, token: session.token };
 
+  // Both of these are single fire-and-forget calls racing against other
+  // clients — but if this browser happens to be the only one (or the only
+  // one still connected) and its one attempt fails for any reason (a
+  // transient network blip, a cold-start timing hiccup), nothing used to
+  // retry it, silently stranding the room "active" in the database forever
+  // even though the client had already moved on locally. Both now check the
+  // response and, on failure, clear their "fired" ref so the driving
+  // tick/check loop (already running every 100-200ms) tries again shortly.
+
   const callReveal = useCallback(
-    (questionIndex: number) => {
-      fetch(`/api/rooms/${code}/reveal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...authBody, questionIndex }),
-      }).catch(() => {});
+    async (questionIndex: number) => {
+      try {
+        const res = await fetch(`/api/rooms/${code}/reveal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...authBody, questionIndex }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.error(`[reveal] failed (${res.status}):`, body.error);
+          revealFiredRef.current = false;
+        }
+      } catch (err) {
+        console.error("[reveal] request threw:", err);
+        revealFiredRef.current = false;
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [code, session.playerId, session.token]
   );
 
   const callNext = useCallback(
-    (questionIndex: number) => {
-      fetch(`/api/rooms/${code}/next`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...authBody, questionIndex }),
-      }).catch(() => {});
+    async (questionIndex: number) => {
+      try {
+        const res = await fetch(`/api/rooms/${code}/next`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...authBody, questionIndex }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.error(`[next] failed (${res.status}):`, body.error);
+          nextFiredRef.current = false;
+        }
+      } catch (err) {
+        console.error("[next] request threw:", err);
+        nextFiredRef.current = false;
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [code, session.playerId, session.token]
@@ -79,7 +111,9 @@ export default function GameRoom({
     setSelected(null);
     setLastPoints(null);
     revealFiredRef.current = false;
+    revealLastAttemptRef.current = 0;
     nextFiredRef.current = false;
+    nextLastAttemptRef.current = 0;
     revealSoundFiredRef.current = false;
     lastTickSoundRef.current = null;
   }, [question?.id]);
@@ -107,8 +141,13 @@ export default function GameRoom({
         lastTickSoundRef.current = wholeSecond;
         playTick();
       }
-      if (left <= 0 && !revealFiredRef.current) {
+      if (
+        left <= 0 &&
+        !revealFiredRef.current &&
+        Date.now() - revealLastAttemptRef.current > RETRY_COOLDOWN_MS
+      ) {
         revealFiredRef.current = true;
+        revealLastAttemptRef.current = Date.now();
         setTimeout(() => callReveal(room.currentQuestionIndex), Math.random() * 400);
       }
     };
@@ -131,8 +170,9 @@ export default function GameRoom({
 
     const check = () => {
       if (nextFiredRef.current) return;
-      if (Date.now() >= target) {
+      if (Date.now() >= target && Date.now() - nextLastAttemptRef.current > RETRY_COOLDOWN_MS) {
         nextFiredRef.current = true;
+        nextLastAttemptRef.current = Date.now();
         callNext(reveal.questionIndex);
       }
     };
