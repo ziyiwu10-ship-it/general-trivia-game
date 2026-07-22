@@ -15,6 +15,8 @@ export interface GeneratedQuestion {
   difficulty: "easy" | "medium" | "hard" | "expert";
   /** Short subject for building a "learn more" link, e.g. "Trolley problem". */
   topic: string;
+  /** 1-3 sentence explanation of the correct answer, shown in the end-of-game recap. */
+  explanation: string;
 }
 
 const QUESTION_BANK_TOOL = {
@@ -44,8 +46,13 @@ const QUESTION_BANK_TOOL = {
               type: "string" as const,
               description: "2-5 word subject to look this question up by, e.g. a Wikipedia article title.",
             },
+            explanation: {
+              type: "string" as const,
+              description:
+                "1-3 sentence self-contained explanation of why the correct answer is correct, with brief context. Written so it stands alone — never says 'Wikipedia' or tells the reader to look elsewhere.",
+            },
           },
-          required: ["question", "choices", "correctIndex", "difficulty", "topic"],
+          required: ["question", "choices", "correctIndex", "difficulty", "topic", "explanation"],
         },
       },
     },
@@ -95,6 +102,11 @@ Rules:
 - For each question, include a short "topic" — a 2-5 word subject (ideally
   matching a real Wikipedia article title) that a player could look up to
   learn more, e.g. "Trolley problem" or "Congress of Vienna".
+- Also include a self-contained "explanation": 1-3 sentences that explain
+  why the correct answer is correct and give a bit of interesting context,
+  written so it's genuinely informative on its own without sending the
+  reader anywhere else. This is shown to players after the game ends, so
+  it should read naturally, not like a citation or a "see X for more."
 - Each question has exactly 4 answer choices, only one correct.
 - Choices should be plausible and similar in length; avoid "all of the above" style choices.
 - Keep questions and choices concise (question under 160 chars, choices under 40 chars each).
@@ -129,6 +141,7 @@ Rules:
       correctIndex: q.correctIndex,
       difficulty: q.difficulty,
       topic: q.topic,
+      explanation: q.explanation,
     }))
     // Belt-and-suspenders: re-sort by the tagged difficulty in case the
     // model's array order didn't perfectly match its own tags.

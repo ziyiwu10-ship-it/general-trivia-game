@@ -41,6 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
       correctIndex: q.correct_index,
       correctAnswer: q.choices[q.correct_index],
       topic: q.topic,
+      explanation: q.explanation,
       learnMoreUrl: wikipediaSearchUrl(q.topic || q.question),
     }));
 

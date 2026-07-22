@@ -24,6 +24,7 @@ interface RecapItem {
   correctIndex: number;
   correctAnswer: string;
   topic: string;
+  explanation: string;
   learnMoreUrl: string;
 }
 
@@ -134,13 +135,18 @@ export default function Podium({
                       <p className="font-terminal text-lg text-neon-green mt-1">
                         ✓ {item.correctAnswer}
                       </p>
+                      {item.explanation && (
+                        <p className="font-terminal text-base text-foreground/70 mt-1">
+                          {item.explanation}
+                        </p>
+                      )}
                       <a
                         href={item.learnMoreUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-pixel text-[9px] text-neon-cyan hover:text-shadow-neon-cyan underline underline-offset-4 inline-block mt-1"
+                        className="font-pixel text-[8px] text-neon-cyan/70 hover:text-neon-cyan underline underline-offset-4 inline-block mt-2"
                       >
-                        Learn more on Wikipedia →
+                        More on Wikipedia →
                       </a>
                     </div>
                   ))}

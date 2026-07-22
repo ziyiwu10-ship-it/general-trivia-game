@@ -57,6 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
         correct_index: q.correctIndex,
         category: room.category,
         topic: q.topic,
+        explanation: q.explanation,
       }))
     );
     if (insertError) throw insertError;

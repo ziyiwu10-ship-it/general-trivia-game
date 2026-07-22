@@ -119,11 +119,15 @@ pixel-font headings, terminal-font body text, scanline/grid texture.
   original set in a similar cute-chibi-pixel spirit to the game's visual
   references, not reproductions of any copyrighted character art.
 - **Question recap**: once a game finishes, the podium screen has a
-  collapsible recap of every question, its correct answer, and a "Learn more"
-  link. Links point to a Wikipedia search for a short topic Claude tags per
-  question (`/w/index.php?search=...`) rather than a guessed direct article
-  URL, so they can't 404 even if the exact article title is slightly off.
-  Answers are only ever fetchable via `/api/rooms/[code]/recap` once
+  collapsible recap of every question, its correct answer, and a short
+  self-contained explanation Claude writes for each question at generation
+  time (stored in `questions.explanation`) — this is the primary content,
+  since a "just go read Wikipedia" link isn't always reliable (some topics
+  don't have a good matching article). A secondary "More on Wikipedia" link
+  is still included, pointed at a Wikipedia *search* for a short topic
+  Claude tags per question (`/w/index.php?search=...`) rather than a guessed
+  direct article URL, so it can't 404 even if the exact title is slightly
+  off. Answers are only ever fetchable via `/api/rooms/[code]/recap` once
   `room.status === 'finished'`, so there's no way to peek mid-game.
 
 ## Design tradeoffs

@@ -36,6 +36,7 @@ export interface QuestionRow {
   correct_index: number;
   category: string | null;
   topic: string;
+  explanation: string;
   created_at: string;
 }
 
@@ -52,9 +53,10 @@ export interface AnswerRow {
 }
 
 /**
- * Question shape sent to clients during active play — correct_index and
- * topic are both stripped server-side (topic doubles as a search term for
- * the correct answer, e.g. "Trolley problem", so it would spoil the
- * question if shown before it's answered).
+ * Question shape sent to clients during active play — correct_index,
+ * topic, and explanation are all stripped server-side (topic doubles as a
+ * search term for the correct answer, e.g. "Trolley problem", and the
+ * explanation directly states the answer, so both would spoil the question
+ * if shown before it's answered).
  */
-export type PublicQuestion = Omit<QuestionRow, "correct_index" | "topic">;
+export type PublicQuestion = Omit<QuestionRow, "correct_index" | "topic" | "explanation">;

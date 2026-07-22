@@ -59,6 +59,7 @@ create table if not exists questions (
   correct_index int not null check (correct_index between 0 and 3),
   category text,
   topic text not null default '',
+  explanation text not null default '',
   created_at timestamptz not null default now(),
   unique (room_id, idx)
 );
@@ -143,4 +144,5 @@ create policy "players are publicly readable" on players
 --   alter table players add column if not exists avatar text not null default '🦸‍♀️';
 --   alter table questions add column if not exists topic text not null default '';
 --   create index if not exists idx_questions_category_created_at on questions (category, created_at desc);
+--   alter table questions add column if not exists explanation text not null default '';
 -- ─────────────────────────────────────────────────────────────
