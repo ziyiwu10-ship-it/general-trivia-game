@@ -92,9 +92,19 @@ pixel-font headings, terminal-font body text, scanline/grid texture.
   lock), which can otherwise strand a client mid-question. Every timer that
   drives the game (countdown, reveal, advance) recomputes against an
   absolute server-derived timestamp and re-checks itself on `visibilitychange`
-  in addition to its normal interval, and the room page does a one-time
-  resync fetch on refocus in case a broadcast was missed outright — so
-  tabbing back in catches you up immediately instead of leaving you stuck.
+  in addition to its normal interval, and the room page resyncs full state
+  every time the realtime channel reaches SUBSCRIBED (first connect and any
+  reconnect) — broadcasts have no history/replay, so this catches anything
+  that fired during a connection gap instead of leaving a client stuck.
+  Leaving a room is deliberately only ever explicit (the Leave Room button)
+  — `pagehide`/`beforeunload` fire on far more than just "actually left"
+  (backgrounding, app-switching), so auto-removing a player on those events
+  was causing spurious "the game reset" moments and has been removed.
+- **Difficulty ramp + no repeats**: each generated question bank is tagged
+  and ordered from easy to expert-level, and the prompt is given the last
+  ~60 questions asked in that category (across any room, since expired rooms
+  cascade-delete their questions) so back-to-back games in the same category
+  don't repeat themselves.
 
 ## Extras
 
@@ -108,6 +118,13 @@ pixel-font headings, terminal-font body text, scanline/grid texture.
   when joining or creating a room (`src/lib/avatars.ts`). These are an
   original set in a similar cute-chibi-pixel spirit to the game's visual
   references, not reproductions of any copyrighted character art.
+- **Question recap**: once a game finishes, the podium screen has a
+  collapsible recap of every question, its correct answer, and a "Learn more"
+  link. Links point to a Wikipedia search for a short topic Claude tags per
+  question (`/w/index.php?search=...`) rather than a guessed direct article
+  URL, so they can't 404 even if the exact article title is slightly off.
+  Answers are only ever fetchable via `/api/rooms/[code]/recap` once
+  `room.status === 'finished'`, so there's no way to peek mid-game.
 
 ## Design tradeoffs
 

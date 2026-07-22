@@ -30,8 +30,21 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
       return NextResponse.json({ error: "Need at least 1 player to start" }, { status: 400 });
     }
 
+    // Avoid repeating questions across back-to-back rooms in the same
+    // category (e.g. two Philosophy lobbies in a row) — recent rooms'
+    // questions naturally fall out of this pool once they expire and
+    // cascade-delete, so it stays bounded without extra cleanup.
+    const RECENT_QUESTION_LOOKBACK = 60;
+    const { data: recentQuestions } = await supabase
+      .from("questions")
+      .select("question")
+      .eq("category", room.category)
+      .order("created_at", { ascending: false })
+      .limit(RECENT_QUESTION_LOOKBACK);
+    const excludeQuestions = (recentQuestions ?? []).map((q) => q.question as string);
+
     await consumeBudgetOrThrow();
-    const generated = await generateQuestions(room.category, room.num_questions);
+    const generated = await generateQuestions(room.category, room.num_questions, excludeQuestions);
 
     const { error: insertError } = await supabase.from("questions").insert(
       generated.map((q, idx) => ({
@@ -41,6 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { code: strin
         choices: q.choices,
         correct_index: q.correctIndex,
         category: room.category,
+        topic: q.topic,
       }))
     );
     if (insertError) throw insertError;

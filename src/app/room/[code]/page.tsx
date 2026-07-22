@@ -123,19 +123,13 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [session, fetchRoom]);
 
-  // Best-effort presence: let the room know we're gone when the tab closes.
-  useEffect(() => {
-    if (!session) return;
-    const leave = () => {
-      const payload = JSON.stringify({ playerId: session.playerId, token: session.token });
-      navigator.sendBeacon(
-        `/api/rooms/${code}/leave`,
-        new Blob([payload], { type: "application/json" })
-      );
-    };
-    window.addEventListener("pagehide", leave);
-    return () => window.removeEventListener("pagehide", leave);
-  }, [code, session]);
+  // NOTE: we deliberately do NOT auto-remove a player on `pagehide` /
+  // `beforeunload`. Those events fire far more often than "actually left
+  // for good" — backgrounding a mobile browser, switching apps, even some
+  // same-origin navigations — and doing so was silently deleting people
+  // from the room (and reassigning host) just for tabbing away, which
+  // looked like the game randomly resetting. Leaving is now only ever
+  // explicit, via the Leave Room button below.
 
   const handleLeave = async () => {
     if (!session) return;
@@ -189,7 +183,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   if (room.status === "finished") {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-        <Podium players={finalPlayers ?? players} selfId={session.playerId} />
+        <Podium code={code} players={finalPlayers ?? players} selfId={session.playerId} />
       </main>
     );
   }

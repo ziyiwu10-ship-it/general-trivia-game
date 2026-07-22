@@ -35,6 +35,7 @@ export interface QuestionRow {
   choices: string[];
   correct_index: number;
   category: string | null;
+  topic: string;
   created_at: string;
 }
 
@@ -50,5 +51,10 @@ export interface AnswerRow {
   answered_at: string;
 }
 
-/** Question shape sent to clients — correct_index is stripped server-side. */
-export type PublicQuestion = Omit<QuestionRow, "correct_index">;
+/**
+ * Question shape sent to clients during active play — correct_index and
+ * topic are both stripped server-side (topic doubles as a search term for
+ * the correct answer, e.g. "Trolley problem", so it would spoil the
+ * question if shown before it's answered).
+ */
+export type PublicQuestion = Omit<QuestionRow, "correct_index" | "topic">;

@@ -58,11 +58,13 @@ create table if not exists questions (
   choices jsonb not null,
   correct_index int not null check (correct_index between 0 and 3),
   category text,
+  topic text not null default '',
   created_at timestamptz not null default now(),
   unique (room_id, idx)
 );
 
 create index if not exists idx_questions_room_id on questions (room_id);
+create index if not exists idx_questions_category_created_at on questions (category, created_at desc);
 
 -- ─────────────────────────────────────────────────────────────
 -- answers (server-authoritative scoring log)
@@ -139,4 +141,6 @@ create policy "players are publicly readable" on players
 -- columns to a table that already exists. Run these by hand instead:
 --
 --   alter table players add column if not exists avatar text not null default '🦸‍♀️';
+--   alter table questions add column if not exists topic text not null default '';
+--   create index if not exists idx_questions_category_created_at on questions (category, created_at desc);
 -- ─────────────────────────────────────────────────────────────

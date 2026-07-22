@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import PixelHeading from "@/components/ui/PixelHeading";
 import NeonPanel from "@/components/ui/NeonPanel";
@@ -17,10 +17,22 @@ const PODIUM_STYLES = [
   { place: 3, color: "pink", height: "h-20", order: "order-3" },
 ] as const;
 
+interface RecapItem {
+  idx: number;
+  question: string;
+  choices: string[];
+  correctIndex: number;
+  correctAnswer: string;
+  topic: string;
+  learnMoreUrl: string;
+}
+
 export default function Podium({
+  code,
   players,
   selfId,
 }: {
+  code: string;
   players: PublicPlayer[];
   selfId: string;
 }) {
@@ -28,9 +40,19 @@ export default function Podium({
   const top3 = ranked.slice(0, 3);
   const rest = ranked.slice(3);
 
+  const [recap, setRecap] = useState<RecapItem[] | null>(null);
+  const [showRecap, setShowRecap] = useState(false);
+
   useEffect(() => {
     playFinish();
   }, []);
+
+  useEffect(() => {
+    fetch(`/api/rooms/${code}/recap`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setRecap(data.recap))
+      .catch(() => {});
+  }, [code]);
 
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-xl px-4">
@@ -81,6 +103,45 @@ export default function Podium({
           <p className="font-pixel text-[10px] text-neon-purple mb-3">EVERYONE ELSE</p>
           <PlayerList players={rest} highlightId={selfId} showScores rankOffset={3} />
         </NeonPanel>
+      )}
+
+      {recap && recap.length > 0 && (
+        <div className="w-full flex flex-col items-center gap-4">
+          <NeonButton color="cyan" fullWidth onClick={() => setShowRecap((s) => !s)}>
+            {showRecap ? "Hide Question Recap" : "Show Question Recap"}
+          </NeonButton>
+
+          <AnimatePresence>
+            {showRecap && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="w-full overflow-hidden"
+              >
+                <NeonPanel color="gold" className="w-full max-h-96 overflow-y-auto flex flex-col gap-4">
+                  {recap.map((item) => (
+                    <div key={item.idx} className="border-b border-arcade-border pb-3 last:border-b-0 last:pb-0">
+                      <p className="font-pixel text-[9px] text-neon-purple mb-1">Q{item.idx + 1}</p>
+                      <p className="font-terminal text-lg text-foreground/90">{item.question}</p>
+                      <p className="font-terminal text-lg text-neon-green mt-1">
+                        ✓ {item.correctAnswer}
+                      </p>
+                      <a
+                        href={item.learnMoreUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-pixel text-[9px] text-neon-cyan hover:text-shadow-neon-cyan underline underline-offset-4 inline-block mt-1"
+                      >
+                        Learn more on Wikipedia →
+                      </a>
+                    </div>
+                  ))}
+                </NeonPanel>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       <Link href="/">

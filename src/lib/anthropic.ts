@@ -13,6 +13,8 @@ export interface GeneratedQuestion {
   choices: [string, string, string, string];
   correctIndex: number;
   difficulty: "easy" | "medium" | "hard" | "expert";
+  /** Short subject for building a "learn more" link, e.g. "Trolley problem". */
+  topic: string;
 }
 
 const QUESTION_BANK_TOOL = {
@@ -38,8 +40,12 @@ const QUESTION_BANK_TOOL = {
               type: "string" as const,
               enum: ["easy", "medium", "hard", "expert"] as const,
             },
+            topic: {
+              type: "string" as const,
+              description: "2-5 word subject to look this question up by, e.g. a Wikipedia article title.",
+            },
           },
-          required: ["question", "choices", "correctIndex", "difficulty"],
+          required: ["question", "choices", "correctIndex", "difficulty", "topic"],
         },
       },
     },
@@ -49,8 +55,14 @@ const QUESTION_BANK_TOOL = {
 
 export async function generateQuestions(
   category: string,
-  numQuestions: number
+  numQuestions: number,
+  excludeQuestions: string[] = []
 ): Promise<GeneratedQuestion[]> {
+  const exclusionBlock =
+    excludeQuestions.length > 0
+      ? `\n\nDo not reuse any of these questions (already asked recently in this category) — generate genuinely different ones, not just reworded variants:\n${excludeQuestions.map((q) => `- ${q}`).join("\n")}`
+      : "";
+
   const response = await getClient().messages.create({
     model: MODEL,
     max_tokens: 4096,
@@ -62,20 +74,32 @@ export async function generateQuestions(
         content: `Generate exactly ${numQuestions} trivia questions for a fast-paced party game. Category: "${category}".
 
 Rules:
+- Factual accuracy is critical: only use well-established, verifiable facts
+  you're highly confident about. Do not invent or guess at dates, numbers, or
+  attributions. If a fact is genuinely disputed, ambiguous, or depends on
+  changing/recent information, avoid it — use a different, solidly-settled
+  question instead. A wrong "correct" answer ruins the game, so when in
+  doubt, pick the safer, better-known fact.
 - Difficulty must ramp up steadily across the set: start with genuinely easy,
   quick-to-answer questions, and progress toward much harder ones by the end.
   Roughly: the first third easy, the middle third medium, and — importantly —
   the final questions should be legitimately hard/expert-level, the kind that
   stump all but the most knowledgeable players. Don't cluster everything in
   the middle; the gap between question 1 and the last question should be
-  large and clearly felt.
+  large and clearly felt. Do not sacrifice factual accuracy for difficulty —
+  a hard question should be hard because it's obscure or requires precise
+  knowledge, never because the "correct" answer is actually shaky.
 - Tag each question's difficulty ("easy" | "medium" | "hard" | "expert")
   honestly based on its actual difficulty, and return the questions array
   already ordered from easiest to hardest to match that ramp.
+- For each question, include a short "topic" — a 2-5 word subject (ideally
+  matching a real Wikipedia article title) that a player could look up to
+  learn more, e.g. "Trolley problem" or "Congress of Vienna".
 - Each question has exactly 4 answer choices, only one correct.
 - Choices should be plausible and similar in length; avoid "all of the above" style choices.
 - Keep questions and choices concise (question under 160 chars, choices under 40 chars each).
-- No duplicate questions. No preamble, just call the tool.`,
+- No duplicate questions within this set.${exclusionBlock}
+- No preamble, just call the tool.`,
       },
     ],
   });
@@ -104,6 +128,7 @@ Rules:
       choices: q.choices.slice(0, 4) as [string, string, string, string],
       correctIndex: q.correctIndex,
       difficulty: q.difficulty,
+      topic: q.topic,
     }))
     // Belt-and-suspenders: re-sort by the tagged difficulty in case the
     // model's array order didn't perfectly match its own tags.
