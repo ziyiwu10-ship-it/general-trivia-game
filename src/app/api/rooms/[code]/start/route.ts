@@ -6,6 +6,8 @@ import { consumeBudgetOrThrow } from "@/lib/budgetGuard";
 import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicQuestion, toPublicRoom } from "@/types/game";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest, { params }: { params: { code: string } }) {
   try {
     const { playerId, token } = await req.json();

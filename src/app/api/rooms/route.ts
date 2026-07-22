@@ -3,6 +3,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { generateRoomCode } from "@/lib/roomCode";
 import { AVATARS, DEFAULT_AVATAR } from "@/lib/avatars";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_SECONDS_PER_QUESTION = 20;
 
 export async function POST(req: NextRequest) {

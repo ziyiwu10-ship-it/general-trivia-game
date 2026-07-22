@@ -6,6 +6,8 @@ import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicPlayer } from "@/types/game";
 import { PlayerRow } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest, { params }: { params: { code: string } }) {
   try {
     const { playerId, token, questionId, choiceIndex } = await req.json();

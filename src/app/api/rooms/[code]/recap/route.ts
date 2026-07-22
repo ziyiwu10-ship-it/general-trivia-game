@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getRoomByCode } from "@/lib/roomAuth";
 
+// This reads live, frequently-changing game state — Next.js caches GET
+// route handlers by default unless told otherwise, which would silently
+// serve a stale "not finished yet" response forever after the first hit.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function wikipediaSearchUrl(topic: string): string {
   const q = new URLSearchParams({ search: topic, title: "Special:Search", fulltext: "1", ns0: "1" });
   return `https://en.wikipedia.org/w/index.php?${q.toString()}`;

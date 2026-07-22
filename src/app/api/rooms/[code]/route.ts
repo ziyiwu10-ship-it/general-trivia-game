@@ -4,6 +4,12 @@ import { getRoomByCode } from "@/lib/roomAuth";
 import { toPublicPlayer, toPublicQuestion, toPublicRoom } from "@/types/game";
 import { PlayerRow } from "@/lib/supabase/types";
 
+// This is the core room/live-state fetch (initial load, every resync) —
+// Next.js caches GET route handlers by default unless told otherwise,
+// which would silently serve stale room/question/player state.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest, { params }: { params: { code: string } }) {
   try {
     const supabase = supabaseServer();

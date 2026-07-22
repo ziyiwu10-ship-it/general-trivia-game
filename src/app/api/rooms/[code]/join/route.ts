@@ -5,6 +5,8 @@ import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicPlayer } from "@/types/game";
 import { AVATARS, DEFAULT_AVATAR } from "@/lib/avatars";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest, { params }: { params: { code: string } }) {
   try {
     const { name, avatar } = await req.json();

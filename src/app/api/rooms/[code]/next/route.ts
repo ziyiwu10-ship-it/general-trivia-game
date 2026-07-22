@@ -5,6 +5,8 @@ import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicPlayer, toPublicQuestion, toPublicRoom } from "@/types/game";
 import { PlayerRow } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 const ADVANCE_GRACE_MS = 500;
 
 /**

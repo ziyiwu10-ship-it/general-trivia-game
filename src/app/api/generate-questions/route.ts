@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateQuestions } from "@/lib/anthropic";
 import { consumeBudgetOrThrow } from "@/lib/budgetGuard";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Dev/single-player endpoint: generates a question bank and returns it
  * directly (including correct answers) for local play/testing.

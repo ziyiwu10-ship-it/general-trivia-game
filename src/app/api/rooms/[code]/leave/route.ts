@@ -5,6 +5,8 @@ import { broadcastToRoom } from "@/lib/realtime";
 import { toPublicPlayer } from "@/types/game";
 import { PlayerRow } from "@/lib/supabase/types";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Explicit leave, fired from a "Leave Room" click or a beforeunload/pagehide
  * beacon. If the host leaves, host status migrates to whoever joined

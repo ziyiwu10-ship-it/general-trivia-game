@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Deletes rooms past their expires_at. Players/questions/answers cascade.
  * Intended to be hit by Vercel Cron (see vercel.json) so the DB doesn't
