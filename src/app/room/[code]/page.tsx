@@ -3,31 +3,45 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerSession } from "@/hooks/usePlayerSession";
-import { PublicPlayer, PublicRoom } from "@/types/game";
+import { useRoomChannel } from "@/hooks/useRoomChannel";
+import { PublicPlayer, PublicRoom, RoomEvent } from "@/types/game";
+import { PublicQuestion } from "@/lib/supabase/types";
 import Lobby from "@/components/Lobby";
+import GameRoom, { RevealState } from "@/components/GameRoom";
+import Podium from "@/components/Podium";
 import PixelHeading from "@/components/ui/PixelHeading";
 
 export default function RoomPage({ params }: { params: { code: string } }) {
   const code = params.code.toUpperCase();
   const router = useRouter();
-  const { session, loaded } = usePlayerSession(code);
+  const { session, save, loaded } = usePlayerSession(code);
 
   const [room, setRoom] = useState<PublicRoom | null>(null);
   const [players, setPlayers] = useState<PublicPlayer[]>([]);
+  const [question, setQuestion] = useState<PublicQuestion | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [reveal, setReveal] = useState<RevealState | null>(null);
+  const [finalPlayers, setFinalPlayers] = useState<PublicPlayer[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const fetchRoom = useCallback(async () => {
-    const res = await fetch(`/api/rooms/${code}`);
-    const data = await res.json();
-    if (!res.ok) {
-      setLoadError(data.error ?? "Room not found");
-      return;
-    }
-    setRoom(data.room);
-    setPlayers(data.players);
-  }, [code]);
+  const fetchRoom = useCallback(
+    async (playerId?: string) => {
+      const qs = playerId ? `?playerId=${playerId}` : "";
+      const res = await fetch(`/api/rooms/${code}${qs}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setLoadError(data.error ?? "Room not found");
+        return;
+      }
+      setRoom(data.room);
+      setPlayers(data.players);
+      setQuestion(data.question);
+      setHasAnswered(data.hasAnswered);
+    },
+    [code]
+  );
 
   useEffect(() => {
     if (!loaded) return;
@@ -35,8 +49,77 @@ export default function RoomPage({ params }: { params: { code: string } }) {
       router.replace("/");
       return;
     }
-    fetchRoom();
+    fetchRoom(session.playerId);
   }, [loaded, session, fetchRoom, router]);
+
+  const handleRealtimeEvent = useCallback(
+    (event: RoomEvent) => {
+      switch (event.type) {
+        case "player_joined":
+          setPlayers((prev) =>
+            prev.some((p) => p.id === event.player.id) ? prev : [...prev, event.player]
+          );
+          break;
+        case "player_left":
+          setPlayers((prev) => prev.filter((p) => p.id !== event.playerId));
+          break;
+        case "question":
+          setRoom(event.room);
+          setQuestion(event.question);
+          setHasAnswered(false);
+          setReveal(null);
+          break;
+        case "scores": {
+          setPlayers(event.players);
+          // Host status can migrate (e.g. the original host left) — keep our
+          // own session's isHost flag in sync so the Lobby's start control updates.
+          const self = event.players.find((p) => p.id === session?.playerId);
+          if (self && session && self.isHost !== session.isHost) {
+            save({ ...session, isHost: self.isHost });
+          }
+          break;
+        }
+        case "question_ended":
+          setPlayers(event.players);
+          setReveal({ questionIndex: event.questionIndex, correctIndex: event.correctIndex });
+          break;
+        case "game_finished":
+          setFinalPlayers(event.players);
+          setRoom((r) => (r ? { ...r, status: "finished" } : r));
+          break;
+      }
+    },
+    [session, save]
+  );
+
+  useRoomChannel(code, handleRealtimeEvent);
+
+  // Best-effort presence: let the room know we're gone when the tab closes.
+  useEffect(() => {
+    if (!session) return;
+    const leave = () => {
+      const payload = JSON.stringify({ playerId: session.playerId, token: session.token });
+      navigator.sendBeacon(
+        `/api/rooms/${code}/leave`,
+        new Blob([payload], { type: "application/json" })
+      );
+    };
+    window.addEventListener("pagehide", leave);
+    return () => window.removeEventListener("pagehide", leave);
+  }, [code, session]);
+
+  const handleLeave = async () => {
+    if (!session) return;
+    try {
+      await fetch(`/api/rooms/${code}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: session.playerId, token: session.token }),
+      });
+    } finally {
+      router.replace("/");
+    }
+  };
 
   const handleStart = async () => {
     if (!session) return;
@@ -50,7 +133,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to start game");
-      await fetchRoom();
+      // room/question state arrives via the realtime "question" broadcast
     } catch (err) {
       setStartError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -74,6 +157,14 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     );
   }
 
+  if (room.status === "finished") {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+        <Podium players={finalPlayers ?? players} selfId={session.playerId} />
+      </main>
+    );
+  }
+
   if (room.status === "lobby") {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
@@ -85,6 +176,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
           onStart={handleStart}
           starting={starting}
           error={startError}
+          onLeave={handleLeave}
         />
       </main>
     );
@@ -92,10 +184,16 @@ export default function RoomPage({ params }: { params: { code: string } }) {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <PixelHeading color="cyan">Game in progress</PixelHeading>
-      <p className="font-terminal text-xl text-neon-purple">
-        Live question sync coming online next.
-      </p>
+      <GameRoom
+        code={code}
+        session={session}
+        room={room}
+        players={players}
+        question={question}
+        hasAnswered={hasAnswered}
+        reveal={reveal}
+        onAnswerSubmitted={() => setHasAnswered(true)}
+      />
     </main>
   );
 }

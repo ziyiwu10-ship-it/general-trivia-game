@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trivia Battle Royale
 
-## Getting Started
+Real-time multiplayer trivia for a small group of friends. One host spins up
+a room, everyone else joins with a short code, and questions (generated live
+by Claude) broadcast to every device in sync — including a leaderboard that
+updates the instant anyone answers.
 
-First, run the development server:
+Retro/arcade neon visual style: near-black backgrounds, glowing borders,
+pixel-font headings, terminal-font body text, scanline/grid texture.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- **Next.js 14** (App Router) + TypeScript + Tailwind CSS + Framer Motion
+- **Supabase** — Postgres for game/room state, Realtime (broadcast channels) for live sync
+- **Anthropic API** — Claude Haiku 4.5, called server-side to generate question banks
+- **Vercel** — deploy target, with Vercel Cron for room cleanup
+
+## Local setup
+
+1. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+2. **Create a Supabase project** at [supabase.com](https://supabase.com), then
+   open the SQL editor and run [`supabase/schema.sql`](supabase/schema.sql).
+   This creates `rooms`, `players`, `questions`, `answers`, `api_usage`, and
+   the RLS policies that keep game state server-authoritative (see
+   [Security model](#security-model) below).
+
+3. **Copy the env file and fill in your keys**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Project Settings → API
+   - `SUPABASE_SERVICE_ROLE_KEY` — same page, **service role** secret (server-only, never exposed to the client)
+   - `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com)
+   - `MAX_DAILY_CLAUDE_REQUESTS` — budget guard, defaults to 20/day (see below)
+
+4. **Run it**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open `http://localhost:3000`. Use `/play` to test question generation +
+   scoring solo without creating a room.
+
+## Deploying to Vercel
+
+1. Push this repo to GitHub and import it in Vercel.
+2. Add the same environment variables from `.env.local` in the Vercel project
+   settings (Production + Preview).
+3. `vercel.json` already defines an hourly Cron hitting `/api/cleanup` to
+   delete expired rooms. Optionally set `CRON_SECRET` in your env vars —
+   Vercel automatically sends it as a Bearer token on cron-triggered
+   requests, and the route checks it if present.
+4. Deploy. Supabase Realtime works over WebSockets from the browser directly
+   to Supabase, so no special Vercel configuration is needed for it.
+
+## How it works
+
+- **Rooms**: the host picks a category + question count, gets a short code
+  (`TRIV42`-style). Friends join with the code + a name on their own device.
+- **Question generation**: on "Start Game", the server calls Claude Haiku 4.5
+  once to generate the whole question bank for the room, stores it in
+  `questions`, and starts question 0.
+- **Live sync**: all game-state changes (new question, live score updates,
+  answer reveal, game over) broadcast over a per-room Supabase Realtime
+  channel (`room:<CODE>`). Every client — including the host's own — reacts
+  to the same broadcasts, so nobody special-cases their own actions.
+- **Server-authoritative timing**: each question's countdown is derived from
+  `question_started_at`, a server timestamp. Clients render the countdown
+  locally but never decide when a question ends — the `/reveal` and `/next`
+  API routes re-check elapsed server time before doing anything, so a client
+  can't fast-forward the game by racing ahead of its local clock.
+- **Scoring**: correct answers score a flat base plus a speed bonus that
+  decays linearly across the question's time window, computed server-side
+  from the server-recorded answer timestamp (never trusts a client-reported
+  time).
+
+## Design tradeoffs
+
+- **Joins are blocked once a game starts.** A late joiner has no sane score
+  baseline and no way to answer questions already shown. For a small
+  friend-group game, it's simpler to have latecomers wait for the next room
+  than to design around partial mid-game state. They can join freely during
+  the lobby, and up until the host clicks Start.
+- **Any player can advance the game, not just the host.** `/reveal` and
+  `/next` are gated by server-side elapsed-time checks rather than a host
+  check, so if the host's tab is backgrounded or they drop mid-game, the
+  game keeps moving — whichever client's local timer fires first wins the
+  race, and duplicate calls are no-ops. The host role only matters for
+  starting the game from the lobby; if the host leaves the lobby, host
+  status migrates automatically to the next-earliest-joined player.
+- **If literally everyone leaves an active game**, nothing is left to call
+  `/reveal`/`/next`, so the room just idles until it expires (see cleanup
+  below). Acceptable for a small, live, synchronous game — there's no
+  intended "leave it running and come back later" use case.
+- **Room cleanup is time-based, not click-based.** Rooms get a 6-hour
+  `expires_at` on creation; the hourly Vercel Cron deletes anything past
+  that. There's no manual "close room" action.
+
+## Budget guard
+
+Claude API calls only happen once per room (question generation on Start).
+`api_usage` tracks a per-day request count; `MAX_DAILY_CLAUDE_REQUESTS`
+(default 20) caps it — once hit, `/api/rooms/[code]/start` and the
+single-player `/api/generate-questions` route return HTTP 429 until the next
+day. Tune this in your env vars to match your actual usage/budget.
+
+## Security model
+
+The browser only ever holds the Supabase **anon** key. All writes (room
+creation, joining, answering, scoring, advancing questions) go through
+Next.js Route Handlers using the **service role** key, which bypasses RLS —
+this is what makes the game server-authoritative: a player can't edit their
+own score or the timer by manipulating client state. RLS policies on `rooms`
+and `players` allow public reads (so the UI can show room/leaderboard state
+directly), but `questions` has no public read policy at all — the correct
+answer is only ever readable server-side, and the current question is
+delivered to clients with `correct_index` stripped out.
+
+## Project structure
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+src/
+  app/
+    page.tsx                 # landing: create/join room
+    play/page.tsx             # single-player test flow (no realtime)
+    room/[code]/page.tsx      # room shell: lobby / live game / podium
+    api/
+      rooms/                  # create, join, start, answer, reveal, next, leave
+      generate-questions/     # single-player question generation
+      cleanup/                # expired-room sweep (Vercel Cron)
+  components/                 # Lobby, GameRoom, QuestionScreen, Podium, etc.
+  components/ui/               # NeonButton, NeonPanel, PixelHeading
+  hooks/                      # usePlayerSession (localStorage identity), useRoomChannel (realtime)
+  lib/                        # anthropic.ts, scoring.ts, roomAuth.ts, realtime.ts, supabase/*
+  types/game.ts                # shared client/server event + DTO types
+supabase/schema.sql            # full DB schema + RLS policies
+```

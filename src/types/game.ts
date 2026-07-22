@@ -34,10 +34,9 @@ export type Category = (typeof CATEGORIES)[number];
 export type RoomEvent =
   | { type: "player_joined"; player: PublicPlayer }
   | { type: "player_left"; playerId: string }
-  | { type: "game_started"; room: PublicRoom }
   | { type: "question"; room: PublicRoom; question: PublicQuestion }
   | { type: "scores"; players: PublicPlayer[] }
-  | { type: "question_ended"; correctIndex: number; players: PublicPlayer[] }
+  | { type: "question_ended"; questionIndex: number; correctIndex: number; players: PublicPlayer[] }
   | { type: "game_finished"; players: PublicPlayer[] };
 
 export function toPublicPlayer(p: PlayerRow): PublicPlayer {

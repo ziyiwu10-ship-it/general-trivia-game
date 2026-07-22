@@ -9,10 +9,13 @@ export default function PlayerList({
   players,
   highlightId,
   showScores = false,
+  rankOffset = 0,
 }: {
   players: PublicPlayer[];
   highlightId?: string;
   showScores?: boolean;
+  /** Starting rank for the first row, for lists that continue a ranking started elsewhere (e.g. "everyone else" below a podium). */
+  rankOffset?: number;
 }) {
   const sorted = showScores ? [...players].sort((a, b) => b.score - a.score) : players;
 
@@ -37,12 +40,26 @@ export default function PlayerList({
               )}
             >
               <span className="flex items-center gap-2">
-                {showScores && <span className="font-pixel text-[10px] text-neon-gold">#{i + 1}</span>}
+                {showScores && (
+                  <span className="font-pixel text-[10px] text-neon-gold">
+                    #{rankOffset + i + 1}
+                  </span>
+                )}
                 {p.name}
                 {p.isHost && <span className="font-pixel text-[9px] text-neon-green">HOST</span>}
                 {!p.connected && <span className="font-pixel text-[9px] text-neon-pink">OFFLINE</span>}
               </span>
-              {showScores && <span className="font-pixel text-sm text-neon-gold">{p.score}</span>}
+              {showScores && (
+                <motion.span
+                  key={p.score}
+                  initial={{ scale: 1.5, color: "#39ff14", textShadow: "0 0 12px #39ff14" }}
+                  animate={{ scale: 1, color: "#ffd93e", textShadow: "0 0 5px #ffd93e" }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="font-pixel text-sm"
+                >
+                  {p.score}
+                </motion.span>
+              )}
             </motion.li>
           ))}
         </AnimatePresence>

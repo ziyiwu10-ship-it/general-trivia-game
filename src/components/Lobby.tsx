@@ -14,6 +14,7 @@ export default function Lobby({
   onStart,
   starting,
   error,
+  onLeave,
 }: {
   room: PublicRoom;
   players: PublicPlayer[];
@@ -22,6 +23,7 @@ export default function Lobby({
   onStart: () => void;
   starting: boolean;
   error?: string | null;
+  onLeave?: () => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-md px-4">
@@ -48,6 +50,15 @@ export default function Lobby({
         <p className="font-terminal text-xl text-neon-purple animate-flicker">
           Waiting for host to start...
         </p>
+      )}
+
+      {onLeave && (
+        <button
+          onClick={onLeave}
+          className="font-terminal text-lg text-foreground/50 hover:text-neon-pink transition-colors"
+        >
+          Leave Room
+        </button>
       )}
     </div>
   );
