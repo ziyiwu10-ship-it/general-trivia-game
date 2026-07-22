@@ -49,9 +49,16 @@ export default function Podium({
 
   useEffect(() => {
     fetch(`/api/rooms/${code}/recap`)
-      .then((res) => (res.ok ? res.json() : null))
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          console.error(`[recap] request failed (${res.status}):`, body.error ?? res.statusText);
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => data && setRecap(data.recap))
-      .catch(() => {});
+      .catch((err) => console.error("[recap] request threw:", err));
   }, [code]);
 
   return (
