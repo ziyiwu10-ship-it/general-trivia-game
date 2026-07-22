@@ -3,11 +3,11 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { generateRoomCode } from "@/lib/roomCode";
 import { AVATARS, DEFAULT_AVATAR } from "@/lib/avatars";
 
-const SECONDS_PER_QUESTION = 20;
+const DEFAULT_SECONDS_PER_QUESTION = 20;
 
 export async function POST(req: NextRequest) {
   try {
-    const { hostName, category, numQuestions, avatar } = await req.json();
+    const { hostName, category, numQuestions, secondsPerQuestion, avatar } = await req.json();
 
     if (!hostName || typeof hostName !== "string" || hostName.trim().length === 0) {
       return NextResponse.json({ error: "hostName is required" }, { status: 400 });
@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     const n = Number(numQuestions) || 10;
     if (n < 1 || n > 25) {
       return NextResponse.json({ error: "numQuestions must be 1-25" }, { status: 400 });
+    }
+    const secs = Number(secondsPerQuestion) || DEFAULT_SECONDS_PER_QUESTION;
+    if (secs < 5 || secs > 120) {
+      return NextResponse.json({ error: "secondsPerQuestion must be 5-120" }, { status: 400 });
     }
     const chosenAvatar = AVATARS.includes(avatar) ? avatar : DEFAULT_AVATAR;
 
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
           code,
           category,
           num_questions: n,
-          seconds_per_question: SECONDS_PER_QUESTION,
+          seconds_per_question: secs,
         })
         .select()
         .single();

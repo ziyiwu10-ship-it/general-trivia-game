@@ -22,7 +22,7 @@ export default function JoinCreateForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleCreate(category: string, numQuestions: number) {
+  async function handleCreate(category: string, numQuestions: number, secondsPerQuestion: number) {
     if (!name.trim()) {
       setError("Enter your name first");
       return;
@@ -33,7 +33,7 @@ export default function JoinCreateForm() {
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostName: name, category, numQuestions, avatar }),
+        body: JSON.stringify({ hostName: name, category, numQuestions, secondsPerQuestion, avatar }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create room");

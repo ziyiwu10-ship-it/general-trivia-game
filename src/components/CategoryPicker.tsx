@@ -22,12 +22,13 @@ export default function CategoryPicker({
   starting,
   error,
 }: {
-  onStart: (category: string, numQuestions: number) => void;
+  onStart: (category: string, numQuestions: number, secondsPerQuestion: number) => void;
   starting?: boolean;
   error?: string | null;
 }) {
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [numQuestions, setNumQuestions] = useState(10);
+  const [secondsPerQuestion, setSecondsPerQuestion] = useState(20);
 
   return (
     <NeonPanel color="pink" glow className="w-full max-w-lg flex flex-col gap-6">
@@ -71,13 +72,29 @@ export default function CategoryPicker({
         />
       </div>
 
+      <div className="flex items-center justify-between font-terminal text-xl">
+        <label htmlFor="secondsPerQuestion" className="text-neon-gold">
+          Time per question: {secondsPerQuestion}s
+        </label>
+        <input
+          id="secondsPerQuestion"
+          type="range"
+          min={10}
+          max={60}
+          step={5}
+          value={secondsPerQuestion}
+          onChange={(e) => setSecondsPerQuestion(Number(e.target.value))}
+          className="w-40 accent-[#ffd93e]"
+        />
+      </div>
+
       {error && <p className="font-terminal text-lg text-neon-pink">{error}</p>}
 
       <NeonButton
         color="green"
         fullWidth
         disabled={starting}
-        onClick={() => onStart(category, numQuestions)}
+        onClick={() => onStart(category, numQuestions, secondsPerQuestion)}
       >
         {starting ? "Generating..." : "Start Game"}
       </NeonButton>

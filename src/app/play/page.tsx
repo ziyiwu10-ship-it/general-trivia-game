@@ -9,7 +9,7 @@ import QuestionScreen from "@/components/QuestionScreen";
 import { calculatePoints } from "@/lib/scoring";
 import type { GeneratedQuestion } from "@/lib/anthropic";
 
-const SECONDS_PER_QUESTION = 20;
+const DEFAULT_SECONDS_PER_QUESTION = 20;
 
 type Phase = "pick" | "playing" | "done";
 
@@ -19,18 +19,19 @@ export default function PlayPage() {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [secondsPerQuestion, setSecondsPerQuestion] = useState(DEFAULT_SECONDS_PER_QUESTION);
 
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [lastPoints, setLastPoints] = useState<number | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(SECONDS_PER_QUESTION);
+  const [secondsLeft, setSecondsLeft] = useState(DEFAULT_SECONDS_PER_QUESTION);
 
   const questionStartRef = useRef<number>(0);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleStart = useCallback(async (cat: string, numQuestions: number) => {
+  const handleStart = useCallback(async (cat: string, numQuestions: number, secs: number) => {
     setStarting(true);
     setError(null);
     try {
@@ -43,6 +44,7 @@ export default function PlayPage() {
       if (!res.ok) throw new Error(data.error ?? "Failed to generate questions");
       setQuestions(data.questions);
       setCategory(cat);
+      setSecondsPerQuestion(secs);
       setIndex(0);
       setScore(0);
       setPhase("playing");
@@ -59,12 +61,12 @@ export default function PlayPage() {
       const q = questions[index];
       const isCorrect = chosenIndex !== null && chosenIndex === q.correctIndex;
       const timeMs = Date.now() - questionStartRef.current;
-      const points = calculatePoints(isCorrect, timeMs, SECONDS_PER_QUESTION);
+      const points = calculatePoints(isCorrect, timeMs, secondsPerQuestion);
       setLastPoints(points);
       setScore((s) => s + points);
       setRevealed(true);
     },
-    [index, questions]
+    [index, questions, secondsPerQuestion]
   );
 
   // start timer whenever a new question comes up
@@ -73,7 +75,7 @@ export default function PlayPage() {
     setSelected(null);
     setRevealed(false);
     setLastPoints(null);
-    setSecondsLeft(SECONDS_PER_QUESTION);
+    setSecondsLeft(secondsPerQuestion);
     questionStartRef.current = Date.now();
 
     tickRef.current = setInterval(() => {
@@ -143,7 +145,7 @@ export default function PlayPage() {
         questionText={q.question}
         choices={q.choices}
         secondsLeft={secondsLeft}
-        totalSeconds={SECONDS_PER_QUESTION}
+        totalSeconds={secondsPerQuestion}
         selectedIndex={selected}
         revealed={revealed}
         correctIndex={revealed ? q.correctIndex : null}
