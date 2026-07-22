@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a12;
+  --foreground: #e8e6f5;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-terminal), monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Perspective neon grid, synthwave-style, fixed behind all content */
+.bg-arcade-grid {
+  background-image:
+    linear-gradient(rgba(185, 103, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(185, 103, 255, 0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+}
+
+/* Subtle scanline overlay for CRT feel */
+.scanlines::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0.18) 2px,
+    rgba(0, 0, 0, 0.18) 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+.scanlines::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 51;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.55) 100%);
+}
+
+::selection {
+  background: #ff2bd6;
+  color: #0a0a12;
+}
+
+/* Pixelated crunch for headings so the pixel font renders crisp */
+.pixel-crisp {
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
