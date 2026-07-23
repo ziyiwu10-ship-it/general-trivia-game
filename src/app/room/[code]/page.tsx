@@ -123,6 +123,22 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [session, fetchRoom]);
 
+  // Safety net for a client that's connected the whole time but still
+  // misses a broadcast: fire-and-forget realtime delivery has no guarantee,
+  // so it's possible (if rare) for a "question" broadcast — the one that
+  // starts the game, or advances it to the next question — to simply never
+  // arrive even though the socket never dropped. The other resync triggers
+  // above only cover reconnects, not "still connected but this one message
+  // got lost." A plain HTTP request every few seconds while lobby/active is
+  // cheap and bounded (it stops entirely once the game finishes), and is a
+  // reasonable trade against a friend getting permanently stuck watching an
+  // empty lobby or a stale question.
+  useEffect(() => {
+    if (!session || room?.status === "finished") return;
+    const interval = setInterval(() => fetchRoom(session.playerId), 4000);
+    return () => clearInterval(interval);
+  }, [session, room?.status, fetchRoom]);
+
   // NOTE: we deliberately do NOT auto-remove a player on `pagehide` /
   // `beforeunload`. Those events fire far more often than "actually left
   // for good" — backgrounding a mobile browser, switching apps, even some
