@@ -191,3 +191,4 @@ src/
   types/game.ts                # shared client/server event + DTO types
 supabase/schema.sql            # full DB schema + RLS policies
 ```
+git commit --allow-empty -m "redeploy" && git push
